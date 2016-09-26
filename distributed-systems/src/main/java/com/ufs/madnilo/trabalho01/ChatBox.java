@@ -11,13 +11,14 @@ import com.rabbitmq.client.Consumer;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
 
-public class User {
+public class ChatBox {
 
-	private final static String QUEUE_NAME = "hello";
+	//private final static String QUEUE_NAME = "hello";
 
 	public static void main(String[] argv) throws Exception {
 		Scanner scan = new Scanner(System.in);
-		String message, user;
+		String message="", user, line, queue="", prompt=">";
+		boolean comando = false;
 
 		// conexão ao servidor
 		ConnectionFactory factory = new ConnectionFactory();
@@ -47,18 +48,32 @@ public class User {
 
 		// testando doidices
 		while (true) {
-			System.out.println(">");
-			message = scan.nextLine();
+			System.out.println(prompt);
+			line = scan.nextLine();
 
-			channel.basicPublish("", QUEUE_NAME, null, message.getBytes("UTF-8"));
+			if(line.startsWith("@")){
+				queue = line.replace("@","");
+				prompt = queue + ">";
+				comando = true;
+			} else {
+				comando = false;
+				message = line;
+			}
+			
+			if(!comando){
+			channel.basicPublish("", queue, null, message.getBytes("UTF-8"));
 			System.out.println(" [x] Sent '" + message + "'");
-
+			}
+			
 			if (message.equals("quit")) {
 				scan.close();
 				System.out.println("Saindo...");
 				break;
 			}
+			comando = false;
 		}
 
 	}
+	
+	
 }
