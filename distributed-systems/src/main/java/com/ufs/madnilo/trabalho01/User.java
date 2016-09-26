@@ -17,7 +17,7 @@ public class User {
 
 	public static void main(String[] argv) throws Exception {
 		Scanner scan = new Scanner(System.in);
-		String message;
+		String message, user;
 
 		// conexão ao servidor
 		ConnectionFactory factory = new ConnectionFactory();
@@ -29,7 +29,9 @@ public class User {
 		Channel channel = connection.createChannel();
 
 		// criação de fila no servidor
-		channel.queueDeclare(QUEUE_NAME, false, false, false, null);
+		System.out.println("User:");
+		user = scan.nextLine();
+		channel.queueDeclare(user, false, false, false, null);
 		System.out.println(" [*] Waiting for messages. To exit press CTRL+C");
 
 		// parte em que o receptor fica esperando mensagens
@@ -41,7 +43,7 @@ public class User {
 				System.out.println(" [x] Received '" + message + "'");
 			}
 		};
-		channel.basicConsume(QUEUE_NAME, true, consumer);
+		channel.basicConsume(user, true, consumer);
 
 		// testando doidices
 		while (true) {
