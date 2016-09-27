@@ -3,6 +3,9 @@ package com.ufs.madnilo.trabalho01;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import javax.xml.bind.annotation.XmlRootElement;
+
+@XmlRootElement
 public class Message {
 	
 	private String sender;
@@ -10,6 +13,13 @@ public class Message {
 	private String time;
 	private String content;
 	
+	public Message(){
+		SimpleDateFormat onlyDate = new SimpleDateFormat("dd/MM/yyyy");
+		SimpleDateFormat onlyHours = new SimpleDateFormat("HH:mm:ss");
+		Date data = new Date();
+		this.date = onlyDate.format(data);
+		this.time = onlyHours.format(data);
+	}
 	
 	public Message(String sender, String content) {
 		super();
