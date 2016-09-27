@@ -29,8 +29,11 @@ public class ChatBox {
 	
 		//Identifica se linha digitada é comando ou mensagem a ser enviada.
 		boolean comando = false;		
+
 		Scanner scan = new Scanner(System.in);
-		String userQName, line, xmlMessage = "", queue = "", prompt = ">";
+		String userQName, line, groupName, xmlMessage = "", sendTo = "", prompt = ">";
+		String userToAddIntoGroup, groupToAddUserInto;
+		String userToRemoveFromGroup, groupToRemoveUserFrom;
 
 		//Cria canal e fila de usuário
 		Channel channel = createChannel();
@@ -59,23 +62,46 @@ public class ChatBox {
 			System.out.println(prompt);
 			line = scan.nextLine();
 
+			//Tratamento do conteúdo da linha digitada
 			if (line.startsWith("@")) {
-				queue = line.replace("@", "");
-				prompt = queue + ">";
 				comando = true;
+				if(line.contains("@@")){
+					sendTo = line.replace("@@", "");
+					prompt = sendTo + "(grupo)>";
+				}else{
+					sendTo = line.replace("@", "");
+					prompt = sendTo + ">";
+				}
+			}else if(line.startsWith("!")){
+				comando = true;
+				if(line.contains("create")){
+					groupName = line.replaceAll("!creategroup ", "");
+					channel.exchangeDeclare(groupName, "fanout");
+					channel.queueBind(userQName, groupName, "");
+				}else if(line.contains("+")){
+					String[] tokens = line.split("\\s");
+					userToAddIntoGroup = tokens[1];
+					groupToAddUserInto = tokens[2];
+					channel.queueBind(userToAddIntoGroup, groupToAddUserInto, "");
+				}else if(line.contains("-")){
+					String[] tokens = line.split("\\s");
+					userToRemoveFromGroup = tokens[1];
+					groupToRemoveUserFrom = tokens[2];
+					channel.queueUnbind(userToRemoveFromGroup, groupToRemoveUserFrom, "");
+				}
 			} else {
 				comando = false;
 				Message msg2 = new Message(userQName, line);
 				xmlMessage = objectToXML(msg2);
 			}
-
+			
+			//Envio de mensagem (caso linha digitada não seja comando)
 			if (!comando) {
-				channel.basicPublish("", queue, null, xmlMessage.getBytes("UTF-8"));
+				channel.basicPublish("", sendTo, null, xmlMessage.getBytes("UTF-8"));
 			}
 
 			if (xmlMessage.equals("quit")) {
 				scan.close();
-				System.out.println("You left.");
 				break;
 			}
 			comando = false;
