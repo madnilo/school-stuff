@@ -1,14 +1,14 @@
 package com.ufs.madnilo.trabalho01;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.Scanner;
 import java.util.concurrent.TimeoutException;
-
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
-
+import javax.xml.bind.Unmarshaller;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
@@ -18,31 +18,43 @@ import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
 
 public class ChatBox {
-
+	
+	//Dados de conexão
 	private static final String CLOUDAMPQ_HOST = "reindeer.rmq.cloudamqp.com";
 	private static final String CLOUDAMPQ_USR = "usngqcwq";
 	private static final String CLOUDAMOQ_PWD = "OzkcoxFQqcEo4zDuSKTK0aWA9P9exzW_";
 
-	public static void main(String[] argv) throws Exception {
-		Scanner scan = new Scanner(System.in);
-		String xmlMessage = "", userQName, line, queue = "", prompt = ">";
-		boolean comando = false;
 
+	public static void main(String[] argv) throws Exception {
+	
+		//Identifica se linha digitada é comando ou mensagem a ser enviada.
+		boolean comando = false;		
+		Scanner scan = new Scanner(System.in);
+		String userQName, line, xmlMessage = "", queue = "", prompt = ">";
+
+		//Cria canal e fila de usuário
 		Channel channel = createChannel();
 		userQName = createUserQ(channel, scan);
 
-		// reception
+		//Looping de recepção
 		Consumer consumer = new DefaultConsumer(channel) {
 			@Override
 			public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties,
 					byte[] body) throws IOException {
-				String message = new String(body, "UTF-8");
-				System.out.println(" [x] Received '" + message + "'");
+				Message msg = new Message();
+				String xmlMessage = new String(body, "UTF-8");
+				try {
+					msg = XMLToObject(xmlMessage);
+				} catch (JAXBException e) {
+					System.out.println("Falhou na desserialização da msg recebida!");
+					e.printStackTrace();
+				}
+				System.out.println("("+ msg.getDate() +" às "+ msg.getTime() +") " + msg.getSender() + " diz: " + msg.getContent());
 			}
 		};
 		channel.basicConsume(userQName, true, consumer);
 
-		// chat loop
+		//Looping de interação
 		while (true) {
 			System.out.println(prompt);
 			line = scan.nextLine();
@@ -53,18 +65,17 @@ public class ChatBox {
 				comando = true;
 			} else {
 				comando = false;
-				Message msg = new Message(userQName, line);
-				xmlMessage = objectToXML(msg);
+				Message msg2 = new Message(userQName, line);
+				xmlMessage = objectToXML(msg2);
 			}
 
 			if (!comando) {
 				channel.basicPublish("", queue, null, xmlMessage.getBytes("UTF-8"));
-				System.out.println(" [x] Sent '" + xmlMessage + "'");
 			}
 
 			if (xmlMessage.equals("quit")) {
 				scan.close();
-				System.out.println("Saindo...");
+				System.out.println("You left.");
 				break;
 			}
 			comando = false;
@@ -77,9 +88,15 @@ public class ChatBox {
 		Marshaller m = context.createMarshaller();
 		m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
 		StringWriter sw = new StringWriter();
-
 		m.marshal(msg, sw);
 		return sw.toString();
+	}
+	
+	private static Message XMLToObject(String xmlMessage) throws JAXBException {
+		JAXBContext context = JAXBContext.newInstance(Message.class);
+		Unmarshaller un = context.createUnmarshaller();
+		StringReader sr = new StringReader(xmlMessage);
+		return (Message) un.unmarshal(sr);
 	}
 
 	private static String createUserQ(Channel channel, Scanner scan) throws IOException {
