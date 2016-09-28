@@ -28,18 +28,18 @@ public class ChatBox {
 	public static void main(String[] argv) throws Exception {
 	
 		//Identifica se linha digitada é comando ou mensagem a ser enviada.
-		boolean comando = false;
+		boolean command = false;
 		//Identifica se msg vai para grupo ou pessoa (exchange ou fila)
-		boolean grupo = false;
+		boolean group = false;
 
 		Scanner scan = new Scanner(System.in);
-		String userQName, line, groupName, xmlMessage = "", sendTo = "", prompt = ">";
+		String userQueueName, line, groupName, xmlMessage = "", sendTo = "", prompt = ">";
 		String userToAddIntoGroup, groupToAddUserInto;
 		String userToRemoveFromGroup, groupToRemoveUserFrom;
 
 		//Cria canal e fila de usuário
-		Channel channel = createChannel();
-		userQName = createUserQ(channel, scan);
+		Channel channel = createUserChannel();
+		userQueueName = createUserQueue(channel, scan);
 
 		//Looping de recepção
 		Consumer consumer = new DefaultConsumer(channel) {
@@ -49,7 +49,7 @@ public class ChatBox {
 				Message msg = new Message();
 				String xmlMessage = new String(body, "UTF-8");
 				try {
-					msg = XMLToObject(xmlMessage);
+					msg = xmlToMessage(xmlMessage);
 				} catch (JAXBException e) {
 					System.out.println("Falhou na desserialização da msg recebida!");
 					e.printStackTrace();
@@ -57,7 +57,7 @@ public class ChatBox {
 				System.out.println("("+ msg.getDate() +" às "+ msg.getTime() +") " + msg.getSender() + " diz: " + msg.getContent());
 			}
 		};
-		channel.basicConsume(userQName, true, consumer);
+		channel.basicConsume(userQueueName, true, consumer);
 
 		//Looping de interação
 		while (true) {
@@ -66,22 +66,22 @@ public class ChatBox {
 
 			//Tratamento do conteúdo da linha digitada
 			if (line.startsWith("@")) {
-				comando = true;
+				command = true;
 				if(line.contains("@@")){
-					grupo = true;
+					group = true;
 					sendTo = line.replace("@@", "");
 					prompt = sendTo + "(grupo)>";
 				}else{
-					grupo = false;
+					group = false;
 					sendTo = line.replace("@", "");
 					prompt = sendTo + ">";
 				}
 			}else if(line.startsWith("!")){
-				comando = true;
+				command = true;
 				if(line.contains("create")){
 					groupName = line.replaceAll("!creategroup ", "");
 					channel.exchangeDeclare(groupName, "fanout");
-					channel.queueBind(userQName, groupName, "");
+					channel.queueBind(userQueueName, groupName, "");
 				}else if(line.contains("remove")){
 					groupName = line.replaceAll("!removegroup ", "");
 					channel.exchangeDelete(groupName);
@@ -97,16 +97,16 @@ public class ChatBox {
 					channel.queueUnbind(userToRemoveFromGroup, groupToRemoveUserFrom, "");
 				}
 			} else {
-				comando = false;
+				command = false;
 				Message msg2 = new Message();
-				if(grupo) msg2 = new Message(sendTo+"/"+userQName, line);
-				else msg2 = new Message(userQName, line);
-				xmlMessage = objectToXML(msg2);
+				if(group) msg2 = new Message(sendTo+"/"+userQueueName, line);
+				else msg2 = new Message(userQueueName, line);
+				xmlMessage = messageToXML(msg2);
 			}
 			
 			//Envio de mensagem (caso linha digitada não seja comando)
-			if (!comando) {
-				if(grupo) channel.basicPublish(sendTo, "", null, xmlMessage.getBytes("UTF-8"));
+			if (!command) {
+				if(group) channel.basicPublish(sendTo, "", null, xmlMessage.getBytes("UTF-8"));
 				else channel.basicPublish("", sendTo, null, xmlMessage.getBytes("UTF-8"));
 			}
 
@@ -114,27 +114,27 @@ public class ChatBox {
 				scan.close();
 				break;
 			}
-			comando = false;
+			command = false;
 		}
 	}
 
-	private static String objectToXML(Message msg) throws JAXBException {
+	private static String messageToXML(Message msg) throws JAXBException {
 		JAXBContext context = JAXBContext.newInstance(Message.class);
-		Marshaller m = context.createMarshaller();
-		m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
-		StringWriter sw = new StringWriter();
-		m.marshal(msg, sw);
-		return sw.toString();
+		Marshaller marshaller = context.createMarshaller();
+		marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+		StringWriter writer = new StringWriter();
+		marshaller.marshal(msg, writer);
+		return writer.toString();
 	}
 	
-	private static Message XMLToObject(String xmlMessage) throws JAXBException {
+	private static Message xmlToMessage(String xmlMessage) throws JAXBException {
 		JAXBContext context = JAXBContext.newInstance(Message.class);
-		Unmarshaller un = context.createUnmarshaller();
-		StringReader sr = new StringReader(xmlMessage);
-		return (Message) un.unmarshal(sr);
+		Unmarshaller unmarshaller = context.createUnmarshaller();
+		StringReader reader = new StringReader(xmlMessage);
+		return (Message) unmarshaller.unmarshal(reader);
 	}
 
-	private static String createUserQ(Channel channel, Scanner scan) throws IOException {
+	private static String createUserQueue(Channel channel, Scanner scan) throws IOException {
 		String user;
 		System.out.println("User:");
 		user = scan.nextLine();
@@ -142,7 +142,7 @@ public class ChatBox {
 		return user;
 	}
 
-	private static Channel createChannel() throws IOException, TimeoutException {
+	private static Channel createUserChannel() throws IOException, TimeoutException {
 		ConnectionFactory factory = new ConnectionFactory();
 		factory.setHost(CLOUDAMPQ_HOST);
 		factory.setUsername(CLOUDAMPQ_USR);
