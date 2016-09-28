@@ -28,7 +28,9 @@ public class ChatBox {
 	public static void main(String[] argv) throws Exception {
 	
 		//Identifica se linha digitada é comando ou mensagem a ser enviada.
-		boolean comando = false;		
+		boolean comando = false;
+		//Identifica se msg vai para grupo ou pessoa (exchange ou fila)
+		boolean grupo = false;
 
 		Scanner scan = new Scanner(System.in);
 		String userQName, line, groupName, xmlMessage = "", sendTo = "", prompt = ">";
@@ -66,9 +68,11 @@ public class ChatBox {
 			if (line.startsWith("@")) {
 				comando = true;
 				if(line.contains("@@")){
+					grupo = true;
 					sendTo = line.replace("@@", "");
 					prompt = sendTo + "(grupo)>";
 				}else{
+					grupo = false;
 					sendTo = line.replace("@", "");
 					prompt = sendTo + ">";
 				}
@@ -78,6 +82,9 @@ public class ChatBox {
 					groupName = line.replaceAll("!creategroup ", "");
 					channel.exchangeDeclare(groupName, "fanout");
 					channel.queueBind(userQName, groupName, "");
+				}else if(line.contains("remove")){
+					groupName = line.replaceAll("!removegroup ", "");
+					channel.exchangeDelete(groupName);
 				}else if(line.contains("+")){
 					String[] tokens = line.split("\\s");
 					userToAddIntoGroup = tokens[1];
@@ -91,13 +98,16 @@ public class ChatBox {
 				}
 			} else {
 				comando = false;
-				Message msg2 = new Message(userQName, line);
+				Message msg2 = new Message();
+				if(grupo) msg2 = new Message(sendTo+"/"+userQName, line);
+				else msg2 = new Message(userQName, line);
 				xmlMessage = objectToXML(msg2);
 			}
 			
 			//Envio de mensagem (caso linha digitada não seja comando)
 			if (!comando) {
-				channel.basicPublish("", sendTo, null, xmlMessage.getBytes("UTF-8"));
+				if(grupo) channel.basicPublish(sendTo, "", null, xmlMessage.getBytes("UTF-8"));
+				else channel.basicPublish("", sendTo, null, xmlMessage.getBytes("UTF-8"));
 			}
 
 			if (xmlMessage.equals("quit")) {
@@ -106,7 +116,6 @@ public class ChatBox {
 			}
 			comando = false;
 		}
-
 	}
 
 	private static String objectToXML(Message msg) throws JAXBException {
