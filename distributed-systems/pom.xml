@@ -3,11 +3,11 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.ufs.madnilo</groupId>
-	<artifactId>distributed-systems</artifactId>
+	<artifactId>distributed-systems-project-01</artifactId>
 	<version>1.0.0-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
-	<name>distributed-systems</name>
+	<name>console-chat</name>
 	<url>http://maven.apache.org</url>
 
 	<properties>
