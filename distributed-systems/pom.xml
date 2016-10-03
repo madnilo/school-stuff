@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.ufs.madnilo</groupId>
-	<artifactId>distributed-systems-project-01</artifactId>
+	<artifactId>distributed-1st-project</artifactId>
 	<version>1.0.0-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
